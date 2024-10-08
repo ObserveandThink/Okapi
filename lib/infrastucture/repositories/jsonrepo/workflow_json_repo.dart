@@ -57,9 +57,14 @@ class WorkflowJsonRepo implements WorkflowRepository {
     };
   }
 
+  @override
   Future<Workflow?> getWorkflowById(String id) async {
     final workflows = await getAllWorkflows();
-    return workflows.firstWhere((w) => w.id == id, orElse: () => null);
+    try {
+      return workflows.firstWhere((w) => w.id == id);
+    } catch (e) {
+      return null;
+    }
   }
 
   Workflow _workflowFromJson(Map<String, dynamic> json) {
