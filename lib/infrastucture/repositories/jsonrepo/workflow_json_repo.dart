@@ -4,57 +4,53 @@ import 'package:okapi/application/interfaces/workflow_repository.dart';
 import 'package:okapi/domain/workflow_entity.dart';
 
 class WorkflowJsonRepo implements WorkflowRepository {
-  final String file_location;
+  final String fileLocation;
+  late final File _file;
 
-  WorkflowJsonRepo({required this.file_location});
-
-  Future<void> initFile() async {
-    // ... (keep the existing implementation)
+  WorkflowJsonRepo({required this.fileLocation}) {
+    _file = File(fileLocation);
   }
 
-  Future<List<Workflow>> getAllWorkflows() async {
-    final file = File(file_location);
-    final contents = await file.readAsString();
-    final List<dynamic> jsonList = json.decode(contents);
-    return jsonList.map((json) => _workflowFromJson(json)).toList();
-  }
-
-  Future<void> createWorkflow(Workflow workflow) async {
-    final file = File(file_location);
-    List<dynamic> workflows = [];
-    if (await file.exists()) {
-      final contents = await file.readAsString();
-      workflows = json.decode(contents);
+  Future<List<Map<String, dynamic>>> _readWorkflows() async {
+    if (!await _file.exists()) {
+      return [];
     }
-    workflows.add(_workflowToJson(workflow));
-    await file.writeAsString(json.encode(workflows));
+    final contents = await _file.readAsString();
+    return List<Map<String, dynamic>>.from(json.decode(contents));
   }
 
+  Future<void> _writeWorkflows(List<Map<String, dynamic>> workflows) async {
+    await _file.writeAsString(json.encode(workflows));
+  }
+
+  @override
+  Future<List<Workflow>> getAllWorkflows() async {
+    final jsonList = await _readWorkflows();
+    return jsonList.map(_workflowFromJson).toList();
+  }
+
+  @override
+  Future<void> createWorkflow(Workflow workflow) async {
+    final workflows = await _readWorkflows();
+    workflows.add(_workflowToJson(workflow));
+    await _writeWorkflows(workflows);
+  }
+
+  @override
   Future<void> updateWorkflow(Workflow workflow) async {
-    final file = File(file_location);
-    final contents = await file.readAsString();
-    List<dynamic> workflows = json.decode(contents);
+    final workflows = await _readWorkflows();
     final index = workflows.indexWhere((w) => w['id'] == workflow.id);
     if (index != -1) {
       workflows[index] = _workflowToJson(workflow);
-      await file.writeAsString(json.encode(workflows));
+      await _writeWorkflows(workflows);
     }
   }
 
+  @override
   Future<void> deleteWorkflow(String id) async {
-    final file = File(file_location);
-    final contents = await file.readAsString();
-    List<dynamic> workflows = json.decode(contents);
+    final workflows = await _readWorkflows();
     workflows.removeWhere((w) => w['id'] == id);
-    await file.writeAsString(json.encode(workflows));
-  }
-
-  Map<String, dynamic> _workflowToJson(Workflow workflow) {
-    return {
-      'id': workflow.id,
-      'name': workflow.name,
-      'taskIds': workflow.taskIds,
-    };
+    await _writeWorkflows(workflows);
   }
 
   @override
@@ -67,11 +63,15 @@ class WorkflowJsonRepo implements WorkflowRepository {
     }
   }
 
-  Workflow _workflowFromJson(Map<String, dynamic> json) {
-    return Workflow(
-      id: json['id'],
-      name: json['name'],
-      taskIds: List<String>.from(json['taskIds']),
-    );
-  }
+  Map<String, dynamic> _workflowToJson(Workflow workflow) => {
+        'id': workflow.id,
+        'name': workflow.name,
+        'taskIds': workflow.taskIds,
+      };
+
+  Workflow _workflowFromJson(Map<String, dynamic> json) => Workflow(
+        id: json['id'],
+        name: json['name'],
+        taskIds: List<String>.from(json['taskIds']),
+      );
 }
