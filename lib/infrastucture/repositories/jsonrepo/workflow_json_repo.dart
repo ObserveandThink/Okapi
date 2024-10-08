@@ -9,37 +9,64 @@ class WorkflowJsonRepo implements WorkflowRepository {
   WorkflowJsonRepo({required this.file_location});
 
   Future<void> initFile() async {
+    // ... (keep the existing implementation)
+  }
+
+  Future<List<Workflow>> getAllWorkflows() async {
     final file = File(file_location);
-    final directoryPath = Directory(file_location).parent;
+    final contents = await file.readAsString();
+    final List<dynamic> jsonList = json.decode(contents);
+    return jsonList.map((json) => _workflowFromJson(json)).toList();
+  }
 
-    // Check if the file exists
-    if (!await file.exists()) {
-      print('File does not exist. Creating new file...');
+  Future<void> createWorkflow(Workflow workflow) async {
+    final file = File(file_location);
+    List<dynamic> workflows = [];
+    if (await file.exists()) {
+      final contents = await file.readAsString();
+      workflows = json.decode(contents);
+    }
+    workflows.add(_workflowToJson(workflow));
+    await file.writeAsString(json.encode(workflows));
+  }
 
-      // Create the directory if it doesn't exist
-      directoryPath.createSync(recursive: true);
-
-      // Create the file
-      await file.create();
-      print('New file created successfully.');
-    } else {
-      print('File already exists.');
+  Future<void> updateWorkflow(Workflow workflow) async {
+    final file = File(file_location);
+    final contents = await file.readAsString();
+    List<dynamic> workflows = json.decode(contents);
+    final index = workflows.indexWhere((w) => w['id'] == workflow.id);
+    if (index != -1) {
+      workflows[index] = _workflowToJson(workflow);
+      await file.writeAsString(json.encode(workflows));
     }
   }
 
-  Future<List<Workflow>> getAllWorkflows() {
-    throw UnimplementedError();
+  Future<void> deleteWorkflow(String id) async {
+    final file = File(file_location);
+    final contents = await file.readAsString();
+    List<dynamic> workflows = json.decode(contents);
+    workflows.removeWhere((w) => w['id'] == id);
+    await file.writeAsString(json.encode(workflows));
   }
 
-  Future<void> createWorkflow(Workflow workflow) {
-    throw UnimplementedError();
+  Map<String, dynamic> _workflowToJson(Workflow workflow) {
+    return {
+      'id': workflow.id,
+      'name': workflow.name,
+      'taskIds': workflow.taskIds,
+    };
   }
 
-  Future<void> updateWorkflow(Workflow workflow) {
-    throw UnimplementedError();
+  Future<Workflow?> getWorkflowById(String id) async {
+    final workflows = await getAllWorkflows();
+    return workflows.firstWhere((w) => w.id == id, orElse: () => null);
   }
 
-  Future<void> deleteWorkflow(String id) {
-    throw UnimplementedError();
+  Workflow _workflowFromJson(Map<String, dynamic> json) {
+    return Workflow(
+      id: json['id'],
+      name: json['name'],
+      taskIds: List<String>.from(json['taskIds']),
+    );
   }
 }
