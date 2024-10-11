@@ -1,10 +1,13 @@
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:convert';
 import 'package:okapi/application/interfaces/workflow_repository.dart';
 import 'package:okapi/domain/workflow_entity.dart';
+import 'package:okapi/infrastucture/data_serializers/workflow_serializer.dart';
 
 class WorkflowJsonRepo implements WorkflowRepository {
   final String fileLocation;
+  final WorkflowDataSerializer _serializer = WorkflowDataSerializer();
   late final File _file;
 
   WorkflowJsonRepo({required this.fileLocation}) {
@@ -26,13 +29,13 @@ class WorkflowJsonRepo implements WorkflowRepository {
   @override
   Future<List<Workflow>> getAllWorkflows() async {
     final jsonList = await _readWorkflows();
-    return jsonList.map(_workflowFromJson).toList();
+    return jsonList.map(_serializer.workflowFromJson).toList();
   }
 
   @override
   Future<void> createWorkflow(Workflow workflow) async {
     final workflows = await _readWorkflows();
-    workflows.add(_workflowToJson(workflow));
+    workflows.add(_serializer.workflowToJson(workflow));
     await _writeWorkflows(workflows);
   }
 
@@ -41,7 +44,7 @@ class WorkflowJsonRepo implements WorkflowRepository {
     final workflows = await _readWorkflows();
     final index = workflows.indexWhere((w) => w['id'] == workflow.id);
     if (index != -1) {
-      workflows[index] = _workflowToJson(workflow);
+      workflows[index] = _serializer.workflowToJson(workflow);
       await _writeWorkflows(workflows);
     }
   }
@@ -62,16 +65,4 @@ class WorkflowJsonRepo implements WorkflowRepository {
       return null;
     }
   }
-
-  Map<String, dynamic> _workflowToJson(Workflow workflow) => {
-        'id': workflow.id,
-        'name': workflow.name,
-        'taskIds': workflow.taskIds,
-      };
-
-  Workflow _workflowFromJson(Map<String, dynamic> json) => Workflow(
-        id: json['id'],
-        name: json['name'],
-        taskIds: List<String>.from(json['taskIds']),
-      );
 }
